@@ -1,0 +1,118 @@
+#!/usr/bin/env python2.7
+
+import ConfigParser
+import contextlib
+import errno
+import logging
+import os
+import os.path
+import sys
+import tarfile
+import tempfile
+import urllib2
+
+
+PANTS_CACHE = os.path.expanduser('~/.pants.d')
+PANTS_PEX_CACHE = '%s/bin/pants.pex' % PANTS_CACHE
+
+CHUNK_SIZE=102400
+
+logger = logging.getLogger()
+
+config = ConfigParser.SafeConfigParser()
+config.read('pants.ini')
+pants_support_baseurl = config.defaults()['pants_support_baseurl']
+
+
+def fetch(url, dest, mode=None):
+  """returns true if url was fetched, false if already cached"""
+  if os.path.exists(dest):
+    logger.debug('already cached %s at %s' % (url, dest))
+    return False
+
+  try:
+    os.makedirs(os.path.dirname(dest))
+  except OSError as e:
+    if e.errno != errno.EEXIST:
+      raise e
+
+  tmp_fh, tmp_path = tempfile.mkstemp(dir=os.path.dirname(dest))
+  try:
+    logger.debug('fetching %s to %s' % (url, tmp_path))
+    with contextlib.closing(urllib2.urlopen(url)) as u:
+      sys.stderr.write('Reading %.2fKB from %s\n'
+                       % (int(u.info().getheader('Content-Length').strip()) / 1024.0, url))
+      size = 0
+      while True:
+        sys.stderr.write('.')
+        chunk = u.read(CHUNK_SIZE)
+        if not chunk:
+          sys.stderr.write('. (%.2fKB)\n' % (size / 1024.0))
+          break
+        else:
+          size += len(chunk)
+          os.write(tmp_fh, chunk)
+    os.close(tmp_fh)
+    os.rename(tmp_path, dest)
+  finally:
+    if os.path.exists(tmp_path):
+      os.unlink(tmp_path)
+
+  if mode:
+    os.chmod(dest, mode)
+  logger.debug('deposited %s at %s' % (url, dest))
+  return True
+
+
+# TODO(travis, jsirois): remove when pants does this itself
+def fetch_ivy():
+  repo = 'http://artifactory.local.twitter.com/repo'
+
+  url = '%s/ivysvnresolver/ivysvnresolver/2.2.0/ivysvnresolver-2.2.0-bin.tgz' % repo
+  dest = '%s/ivysvnresolver/ivysvnresolver-2.2.0-bin.tgz' % PANTS_CACHE
+  if not fetch(url, dest):
+    return # no need to extract/symlink
+
+  with contextlib.closing(tarfile.open(dest)) as tar:
+    tar.extractall(path=os.path.dirname(dest))
+
+
+def fetch_pants(version):
+  # Use pants.pex if in the repo - primarily for development.
+  if os.path.exists('pants.pex'):
+    return './pants.pex'
+
+  pants_pex_filename = 'pants-%s-py%s%s.pex' % (version, sys.version_info[0], sys.version_info[1])
+  pants_pex_cached_filename = '%s/%s' % (PANTS_PEX_CACHE, pants_pex_filename)
+
+  if os.path.exists(pants_pex_cached_filename):
+    return pants_pex_cached_filename
+
+  url = '%s/../pex/%s/%s' % (pants_support_baseurl, version, pants_pex_filename)
+  fetch(url, pants_pex_cached_filename, 0755)
+  return pants_pex_cached_filename
+
+
+def get_expected_pants_version():
+  VERSION_KEY = 'pants_version'
+  version = config.defaults()[VERSION_KEY]
+  return version
+
+
+def main():
+  if 'PANTS_DEV' in os.environ:
+    logger.setLevel(logging.DEBUG)
+  else:
+    logger.setLevel(logging.INFO)
+  formatter = logging.Formatter("%(asctime)s %(filename)s:%(lineno)d - %(message)s")
+  stream_handler = logging.StreamHandler(sys.stderr)
+  stream_handler.setFormatter(formatter)
+  logger.addHandler(stream_handler)
+
+  fetch_ivy()
+  logger.info('launching %s' % fetch_pants(get_expected_pants_version()))
+  os.execv(fetch_pants(get_expected_pants_version()), sys.argv)
+
+
+if __name__ == '__main__':
+  main()
