@@ -242,7 +242,8 @@ class UmpireServiceCheck(ServiceCheck):
     umpire_range = models.IntegerField(null=True,blank=True)
     umpire_check_type = models.CharField(max_length=64,choices=UMPIRE_CHECK_TYPES,default="static")
     umpire_range_type = models.CharField(max_length=64,choices=UMPIRE_RANGE_TYPES,default="current")
-    umpire_percent_error = models.FloatField(default=.25)
+    umpire_lower_percent_error = models.FloatField(default=.25)
+    umpire_upper_percent_error = models.FloatField(default=.25)
 
     @property
     def last_std(self):
@@ -314,7 +315,7 @@ class UmpireServiceCheck(ServiceCheck):
 
     def error_range_series(self,num_values=40):
         if self.umpire_check_type == "dynamic":
-            return [[val*(1-self.umpire_percent_error),val*(1+self.umpire_percent_error)] for val in self.history_series()]
+            return [[val*(1-self.umpire_lower_percent_error),val*(1+self.umpire_upper_percent_error)] for val in self.history_series()]
         else:
             return [[self.umpire_min,self.umpire_max] for i in range(num_values)]
 
@@ -331,14 +332,14 @@ class UmpireServiceCheck(ServiceCheck):
         if self.umpire_check_type == "static":
             return self.umpire_min
         else:
-            return self.history_value*(1-self.umpire_percent_error)
+            return self.history_value*(1-self.umpire_lower_percent_error)
 
     @property
     def error_upper_bound(self):
         if self.umpire_check_type == "static":
             return self.umpire_max
         else:
-            return self.history_value*(1+self.umpire_percent_error)
+            return self.history_value*(1+self.umpire_upper_percent_error)
 
     @property
     def _last_history_redis_key(self):
