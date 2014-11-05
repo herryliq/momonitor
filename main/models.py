@@ -415,6 +415,9 @@ class UmpireServiceCheck(ServiceCheck):
             if res.status_code == 200:
                 value = res_data['value']
                 status = STATUS_GOOD
+            elif res.status_code == 404:
+                value = 0
+                status = STATUS_UNKNOWN
             else:
                 if res_data.has_key("value"):
                     value = res_data['value']
