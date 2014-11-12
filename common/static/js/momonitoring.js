@@ -169,6 +169,11 @@ function setSilencedDescriptionFromField() {
     }
 
     $("#silenced_description").text(description);
+
+    //haxxor
+    if (description == "Not silenced") {
+      $("textarea[name=silenced_reason").val("");
+    }
 }
 
 function setSilencedFor(secondsFromNow) {

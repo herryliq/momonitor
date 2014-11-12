@@ -24,7 +24,10 @@ class ServiceCheckForm(forms.ModelForm):
             self.fields['endpoint'].widget.attrs['placeholder'] = "http://example.org"
         if self.fields.has_key("timeout"):
             self.fields['timeout'].widget.attrs['placeholder'] = "i.e. 100"
-        
+        self.fields['silenced_reason'].widget.attrs['placeholder'] = "Silenced Reason"
+        self.fields['silenced_reason'].widget.attrs['rows'] = 3
+        self.fields['silenced_reason'].widget.attrs['cols'] = 60
+
 
 class UmpireServiceCheckForm(ServiceCheckForm):
     title="Create/Edit Umpire Checks"

@@ -22,8 +22,6 @@ import requests
 import json
 import time
 
-import pdb
-
 class Service(models.Model):
     resource_name="service"
 
@@ -142,6 +140,7 @@ class ServiceCheck(models.Model):
     description = models.TextField(null=True,blank=True)
     service = models.ForeignKey(Service,related_name="%(class)s")
     silenced_until = models.IntegerField(default=0) # This is a timestamp (seconds since unix epoch).
+    silenced_reason = models.TextField(null=True, blank=True)
     alert_type = models.CharField(max_length=64,choices=ALERT_CHOICES,null=True,blank=True)
     frequency = models.CharField(max_length=128,null=True,blank=True)
     failures_before_alert = models.IntegerField(null=True,blank=True)
@@ -416,8 +415,12 @@ class UmpireServiceCheck(ServiceCheck):
                 value = res_data['value']
                 status = STATUS_GOOD
             elif res.status_code == 404:
+                # If Umpire returns a 404, we want to treat the metric as if it
+                # were 0. Therefore we need to do the health check locally
                 value = 0
-                status = STATUS_UNKNOWN
+                status = STATUS_GOOD \
+                         if 0 >= umpire_min and 0 <= umpire_max \
+                            else STATUS_BAD
             else:
                 if res_data.has_key("value"):
                     value = res_data['value']
