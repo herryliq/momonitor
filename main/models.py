@@ -22,8 +22,6 @@ import requests
 import json
 import time
 
-import pdb
-
 class Service(models.Model):
     resource_name="service"
 
@@ -142,6 +140,7 @@ class ServiceCheck(models.Model):
     description = models.TextField(null=True,blank=True)
     service = models.ForeignKey(Service,related_name="%(class)s")
     silenced_until = models.IntegerField(default=0) # This is a timestamp (seconds since unix epoch).
+    silenced_reason = models.TextField(null=True, blank=True)
     alert_type = models.CharField(max_length=64,choices=ALERT_CHOICES,null=True,blank=True)
     frequency = models.CharField(max_length=128,null=True,blank=True)
     failures_before_alert = models.IntegerField(null=True,blank=True)
@@ -242,7 +241,8 @@ class UmpireServiceCheck(ServiceCheck):
     umpire_range = models.IntegerField(null=True,blank=True)
     umpire_check_type = models.CharField(max_length=64,choices=UMPIRE_CHECK_TYPES,default="static")
     umpire_range_type = models.CharField(max_length=64,choices=UMPIRE_RANGE_TYPES,default="current")
-    umpire_percent_error = models.FloatField(default=.25)
+    umpire_lower_percent_error = models.FloatField(default=.25)
+    umpire_upper_percent_error = models.FloatField(default=.25)
 
     @property
     def last_std(self):
@@ -314,7 +314,7 @@ class UmpireServiceCheck(ServiceCheck):
 
     def error_range_series(self,num_values=40):
         if self.umpire_check_type == "dynamic":
-            return [[val*(1-self.umpire_percent_error),val*(1+self.umpire_percent_error)] for val in self.history_series()]
+            return [[val*(1-self.umpire_lower_percent_error),val*(1+self.umpire_upper_percent_error)] for val in self.history_series()]
         else:
             return [[self.umpire_min,self.umpire_max] for i in range(num_values)]
 
@@ -331,14 +331,14 @@ class UmpireServiceCheck(ServiceCheck):
         if self.umpire_check_type == "static":
             return self.umpire_min
         else:
-            return self.history_value*(1-self.umpire_percent_error)
+            return self.history_value*(1-self.umpire_lower_percent_error)
 
     @property
     def error_upper_bound(self):
         if self.umpire_check_type == "static":
             return self.umpire_max
         else:
-            return self.history_value*(1+self.umpire_percent_error)
+            return self.history_value*(1+self.umpire_upper_percent_error)
 
     @property
     def _last_history_redis_key(self):
@@ -414,6 +414,13 @@ class UmpireServiceCheck(ServiceCheck):
             if res.status_code == 200:
                 value = res_data['value']
                 status = STATUS_GOOD
+            elif res.status_code == 404:
+                # If Umpire returns a 404, we want to treat the metric as if it
+                # were 0. Therefore we need to do the health check locally
+                value = 0
+                status = STATUS_GOOD \
+                         if 0 >= umpire_min and 0 <= umpire_max \
+                            else STATUS_BAD
             else:
                 if res_data.has_key("value"):
                     value = res_data['value']
