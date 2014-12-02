@@ -85,15 +85,19 @@ class Service(models.Model):
         if not res.status_code==200:
             logging.error("Failed to alert pagerduty of event %s" % description)
 
-    def _send_alert_email(self,description):
+    def _send_alert_email(self,description, runbook_url=None):
         if not self.email_contact:
             logging.warning("No email contact for service %s" % self.name)
         try:
+
+            if not runbook_url:
+                runbook_url = self.runbook_url
+
             title = "{} Service Check Failed: {}".format(self.name, description)
             email_msg = get_template("alert_email.txt").render(
                 Context({"description":description,
                          "service_name":self.name,
-                         "runbook_url": self.runbook_url,
+                         "runbook_url": runbook_url,
                          "url":"%s%s" % (settings.DOMAIN,
                                          reverse("main:service",kwargs={'service_id':self.id}))
                          })
@@ -107,7 +111,7 @@ class Service(models.Model):
         except SMTPException:
             logging.error("Failed to send email to %s for error %s" % (self.email_contact,description))
 
-    def send_alert(self,description,alert_type=None):
+    def send_alert(self,description, alert_type=None, runbook_url=None):
         if self.silenced:
             logging.debug("Service %s is silenced. Not sending pagerduty alert %s" % (self.name,description))
             return
@@ -116,7 +120,7 @@ class Service(models.Model):
         if alert_type == "pagerduty":
             self._send_alert_pagerduty(description)
         elif alert_type == "email":
-            self._send_alert_email(description)
+            self._send_alert_email(description, runbook_url)
         else:
             logging.info("No alert being sent because alert type is 'none'")
 
@@ -146,6 +150,7 @@ class ServiceCheck(models.Model):
     alert_type = models.CharField(max_length=64,choices=ALERT_CHOICES,null=True,blank=True)
     frequency = models.CharField(max_length=128,null=True,blank=True)
     failures_before_alert = models.IntegerField(null=True,blank=True)
+    runbook_url = models.URLField(null=True, blank=True)
 
     def __unicode__(self):
         return "%s: %s" % (self.service.name,self.name)
@@ -198,7 +203,7 @@ class ServiceCheck(models.Model):
 
     def send_alert(self):
         if not self.is_silenced:
-            self.service.send_alert(self.description or self.name, self.alert_type)
+            self.service.send_alert(self.description or self.name, self.alert_type, self.runbook_url)
         else:
             logging.info("Triggered alert on %s, but it is silenced" % self.name)
 
