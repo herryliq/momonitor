@@ -3,7 +3,12 @@
 {% block body %}
 <div class="page-header">
   <div class="btn-group pull-right">
-    <a class="btn ajaxify tooltipped" data-title="Run Checks" href="{% url main:refresh 'service' service.id %}" class="btn"><i class="icon-refresh"></i></a>
+    <a class="btn ajaxify tooltipped" data-title="Run Checks" href="{% url main:refresh 'service' service.id %}" class="btn"><i class="icon-refresh"></i> Refresh</a>
+    {% if service.runbook_url %}
+    <a class="btn btn-primary" href="{{service.runbook_url}}">
+      <i class="icon-fire icon-white"></i> Runbook
+    </a>
+    {% endif %}
     {% if service.alert_type != "none" %}
     <a class="btn ajaxify tooltipped" {% if service.silenced %}disabled{% endif %} data-title="Test Alert" href="{% url main:test_alert service.id %}" class="btn"><i class="icon-flag"></i></a>
     {% endif %}

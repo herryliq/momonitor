@@ -1,5 +1,12 @@
 Heyo... may have found a problem. Here's what I know:
 
+{% if runbook_url %}
+Check out the runbook!
+{{runbook_url}}
+{% else %}
+No one linked a runbook for this service :(
+{% endif %}
+
 Service: {{service_name}}
 Description: {{description}}
 

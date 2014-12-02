@@ -28,6 +28,7 @@ class Service(models.Model):
     name = models.CharField(max_length=256)
     pagerduty_key = models.CharField(max_length=128,blank=True,null=True)
     email_contact = models.EmailField(null=True,blank=True)
+    runbook_url = models.URLField(null=True, blank=True)
 
     silenced = models.BooleanField(default=False)
 
@@ -92,6 +93,7 @@ class Service(models.Model):
             email_msg = get_template("alert_email.txt").render(
                 Context({"description":description,
                          "service_name":self.name,
+                         "runbook_url": self.runbook_url,
                          "url":"%s%s" % (settings.DOMAIN,
                                          reverse("main:service",kwargs={'service_id':self.id}))
                          })
