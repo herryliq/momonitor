@@ -15,6 +15,7 @@
     <th>P/F/U</th>
     <th>Alert Type</th>
     <th>Last Updated</th>
+    <th>Runbook</th>
   </thead>
   <tbody>
     {% if services %}
@@ -30,12 +31,19 @@
       </td>
       <td width="10%">{{service.status_counts}}</td>
       <td width="20%">{{service.alert_type}}</td>
-      <td width="30%">{{service.last_updated|since}}</td>
+      <td width="25%">{{service.last_updated|since}}</td>
+      <td width="5%">
+	{% if service.runbook_url %}
+	<a class="btn btn-primary btn-small" target="_blank" href="{{service.runbook_url}}"><i class="icon-book icon-white"></i></a>
+	{% else %}
+	N/A
+	{% endif %}
+      </td>
     </tr>
     {% endfor %}
     {% else %}
     <tr>
-      <td colspan="4">
+      <td colspan="5">
 	<center class="muted">You don't have any services. Click <a href="{% url main:modal_form 'service' %}" class="modalize">here</a> to create one</center>
       </td>
     </tr>

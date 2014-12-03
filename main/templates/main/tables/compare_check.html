@@ -18,6 +18,7 @@
     <th>Compared Value</th>
     <th>Last Value</th>
     <th>Last Updated</th>
+    <th>Runbook</th>
   </thead>
   <tbody>
     {% if service.compareservicecheck.count %}
@@ -45,16 +46,23 @@
       <td width="10%">
 	<span class="tooltipped" data-title="{{check.last_value}}">{{check.last_value|truncatechars:10}}</span>
       </td>
-      <td width="25%">{{check.last_updated|since}}
+      <td width="20%">{{check.last_updated|since}}
 	<a class="ajaxify" href="{% url main:refresh 'compareservicecheck' check.id %}">
 	  <i class="icon-refresh"></i>
 	</a>
+      </td>
+      <td width="5%">
+	{% if check.runbook_url %}
+	<a class="btn btn-primary btn-small" target="_blank" href="{{check.runbook_url}}"><i class="icon-book icon-white"></i></a>
+	{% else %}
+	N/A
+	{% endif %}
       </td>
     </tr>
     {% endfor %}
     {% else %}
     <tr>
-      <td colspan="7">
+      <td colspan="8">
 	<center>You currently have no compare checks. Click <a class="modalize" href="{% url main:modal_form 'compareservicecheck' %}?sid={{service.id}}">here</a> to add one</center>
       </td>
     </tr>
